@@ -2,12 +2,21 @@
 
 A basic weather app that also includes objects from the Cooper-Hewitt collection
 
+## Requirements
+
+* PHP 5.2 or greater
+* PHP cURL extension
+* PHP libxml extension
+
 ## Installing
 
-If you want to run this code on your own machine:
+If you want to run this code on your own server:
 
 1. [Register your app](https://developer.apps.yahoo.com/wsregapp/) on the Yahoo Developer Network
-2. Copy `config.php.example` to `config.php` and drop your API keys in there
+2. [Register your app again](https://collection.cooperhewitt.org/api/keys/register/) with the Cooper-Hewitt Collection API
+3. Click "Create an access token for yourself using this API key" on your Cooper-Hewitt app page, fill in **Permissions** as **read**, click the checkbox, and the button "Create"
+4. Copy `config.php.example` to `config.php` and drop your Yahoo API key and the access token you just generated in there
+5. Make the 'cache' directory writable by the web daemon user
 
 ## Commentary follows
 
@@ -28,4 +37,14 @@ The first method of interest here can be found in weather-ch.php, `Weather_CH::g
 
 The Weather RSS service is nice because you don't need to authenticate anything. I plugged in the place WOEID I got back from the GeoPlanet Web Service, did some SimpleXML parsing on the result, and I seem to be in the weather business. I'm just going to focus on the current conditions, although I could easily see extending this to grab forecast numbers as well.
 
-The first two weather-related methods I added to `Weather_CH` was `get_weather($woeid)` to download data from the Yahoo Weather RSS service and `parse_weather($xml_str)` to parse it into a SimpleXML object. Two more methods, `find_condition($weather_xml)` and `find_units($weather_xml)`, pull out the relevant information we can use to display the weather.
+I added another method `get_weather($woeid)` to `Weather_CH` that downloads data from the Yahoo Weather RSS service and returns the current weather conditions as an associative array.
+
+## Third step: get the object info
+
+Working with the Cooper-Hewitt API was super easy! Being able to generate the OAuth token without doing the usual token exhange tango was a nice touch. I was able to pull data from the collection on my first try, which is rarely the case.
+
+I added one more top-level method for working with the Cooper-Hewitt Collection API, `get_object($woeid)`. It retrieves a random object that's from the same country the weather is being shown for. The collection object data is returned as ... (you guessed it) an object.
+
+I also added a caching layer to be a good Internet Citizen. All the basic parts are in place now!
+ 
+ 

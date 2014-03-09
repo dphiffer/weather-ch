@@ -1,5 +1,6 @@
 <?php
 
 $yahoo_app_id = 'PUT YOUR YAHOO APP ID HERE';
+$cooper_hewitt_access_token = 'PUT YOUR COOPER-HEWITT ACCESS TOKEN HERE';
 
 ?>

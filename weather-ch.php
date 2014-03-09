@@ -5,23 +5,76 @@
 
 class Weather_CH {
   
-  // Should be set by the constructor
+  // Set by the constructor when creating an instance object
   var $yahoo_key = null;
+  var $cooper_hewitt_access_token = null;
+  
+  // How long to keep API results cached for
+  var $place_cache_ttl   = 86400; // 24 hours
+  var $weather_cache_ttl = 60;    // 1 minute
+  var $objects_cache_ttl = 86400; // 24 hours
   
   // These shoudn't need to change often
   var $geoplanet_base = 'http://where.yahooapis.com/v1';
   var $weather_base = 'http://weather.yahooapis.com/forecastrss';
+  var $cooper_hewitt_base = 'https://api.collection.cooperhewitt.org/rest/';
   
-  function __construct($yahoo_key) {
+  function __construct($yahoo_key, $cooper_hewitt_access_token) {
     $this->yahoo_key = $yahoo_key;
+    $this->cooper_hewitt_access_token = $cooper_hewitt_access_token;
   }
   
   // Takes a place search query and returns the first Yahoo GeoPlanet object
-  // or null if none is found
+  // (or null if none is found)
   function get_place($query) {
+    $places_json = $this->load_places($query);
+    $places_list = $this->parse_places($places_json);
+    $place = $this->choose_place($places_list);
+    if (empty($place)) {
+      return null;
+    }
+    return $place;
+  }
+  
+  // Takes a place WOEID and returns the weather information from the Yahoo
+  // Weather API as an associative array (or null if unsuccessful)
+  function get_weather($place_woeid) {
+    $weather_xml = $this->load_weather($place_woeid);
+    $weather_obj = $this->parse_weather($weather_xml);
+    $weather = $this->find_condition($weather_obj);
+    $units = $this->find_units($weather_obj);
+    if (empty($weather) || empty($units)) {
+      return null;
+    }
+    $weather['units'] = $units;
+    return $weather;
+  }
+  
+  // Takes a country WOEID and searches for objects in the Cooper-Hewitt
+  // Collection from that country, returns one object chosen at random (or null
+  // if unsuccessful)
+  function get_object($country_woeid) {
+    $objects_json = $this->load_objects($country_woeid);
+    $objects_list = $this->parse_objects($objects_json);
+    $object = $this->choose_object($objects_list);
+    if (empty($object)) {
+      return null;
+    }
+    return $object;
+  }
+  
+  // Takes a place search query and returns the Yahoo GeoPlanet API results
+  // as a JSON string (or null if unsuccessful)
+  function load_places($query) {
     $query = rawurlencode($query);
     if (empty($query)) {
       return null;
+    }
+    $hash = md5($query);
+    $filename = "place_$hash.json";
+    $result = $this->get_cached_file($filename, $this->place_cache_ttl);
+    if (!empty($result)) {
+      return $result;
     }
     $url = "{$this->geoplanet_base}/places.q('$query')" .
            "?appid={$this->yahoo_key}&format=json";
@@ -29,25 +82,47 @@ class Weather_CH {
     if (empty($result)) {
       return null;
     }
-    $result = @json_decode($result);
-    if (empty($result->places->place)) {
-      return null;
-    }
-    return $result->places->place[0];
+    $this->cache_result_data($filename, $result);
+    return $result;
   }
   
-  // Takes a WOEID and returns the weather result from the Yahoo Weather API as
-  // a string (or null if unsuccessful)
-  function get_weather($woeid, $units = 'f') {
+  // Takes places JSON string and returns an array of place objects
+  function parse_places($places_json) {
+    $places = @json_decode($places_json);
+    if (empty($places) ||
+        empty($places->places) ||
+        empty($places->places->place)) {
+      return null;
+    }
+    return $places->places->place;
+  }
+  
+  // Returns the first place object from the list
+  function choose_place($places_list) {
+    if (empty($places_list)) {
+      return null;
+    }
+    return $places_list[0];
+  }
+  
+  // Takes a place WOEID and returns the weather result from the Yahoo Weather
+  // API as an XML string (or null if unsuccessful)
+  function load_weather($woeid, $units = 'f') {
     $woeid = intval($woeid); // Sanity check
     if (empty($woeid) || ($units != 'f' && $units != 'c')) {
       return null;
+    }
+    $filename = "weather_{$woeid}_{$units}.xml";
+    $result = $this->get_cached_file($filename, $this->weather_cache_ttl);
+    if (!empty($result)) {
+      return $result;
     }
     $url = "{$this->weather_base}?w=$woeid&u=$units";
     $result = $this->curl($url);
     if (empty($result)) {
       return null;
     }
+    $this->cache_result_data($filename, $result);
     return $result;
   }
   
@@ -55,12 +130,79 @@ class Weather_CH {
   // unsuccessful)
   function parse_weather($xml_str) {
     $rss = @simplexml_load_string($xml_str);
-    if (empty($rss->channel)) {
+    if (empty($rss) ||
+        empty($rss->channel)) {
       return null;
     }
     $yweather_ns = 'http://xml.weather.yahoo.com/ns/rss/1.0';
     $rss->registerXPathNamespace('yweather', $yweather_ns);
     return $rss;
+  }
+  
+  // Takes a country WOEID and searches for objects in the Cooper-Hewitt
+  // Collection from that country, returned as a JSON string (or null if
+  // unsuccessfull)
+  function load_objects($woeid) {
+    $woeid = intval($woeid); // Sanity check
+    if (empty($woeid)) {
+      return null;
+    }
+    $filename = "objects_$woeid.json";
+    $result = $this->get_cached_file($filename, $this->objects_cache_ttl);
+    if (!empty($result)) {
+      return $result;
+    }
+    $url = $this->cooper_hewitt_base .
+           "?method=cooperhewitt.search.objects" .
+           "&access_token={$this->cooper_hewitt_access_token}" .
+           "&woe_id=$woeid" .
+           "&has_images=1";
+    $result = $this->curl($url);
+    if (empty($result)) {
+      return null;
+    }
+    $this->cache_result_data($filename, $result);
+    return $result;
+  }
+  
+  // Takes JSON text and returns an array from the parsed object (null if
+  // unsuccessful)
+  function parse_objects($objects_json) {
+    $objects_obj = @json_decode($objects_json);
+    if (empty($objects_obj) ||
+        empty($objects_obj->objects)) {
+      return null;
+    }
+    return $objects_obj->objects;
+  }
+  
+  // Returns a random object from Cooper-Hewitt search results object
+  function choose_object($objects) {
+    $count = count($objects);
+    $index = rand(0, $count - 1);
+    return $objects[$index];
+  }
+  
+  // Takes a place object from GeoPlanet API and returns a numeric WOEID from
+  // that place's country (or null if one is not found)
+  function find_country_woeid($place) {
+    $country_attrs = "country attrs";
+    if (empty($place) ||
+        empty($place->$country_attrs) ||
+        empty($place->$country_attrs->woeid)) {
+      return null;
+    }
+    return $place->$country_attrs->woeid;
+  }
+  
+  // Takes a place object from GeoPlanet API and returns that place's numeric
+  // WOEID (or null if one is not found)
+  function find_place_woeid($place) {
+    if (empty($place) ||
+        empty($place->woeid)) {
+      return null;
+    }
+    return $place->woeid;
   }
   
   // Searches SimpleXML input for <yweather:current> and returns an associative
@@ -93,6 +235,26 @@ class Weather_CH {
       'pressure' => "{$units['pressure']}",
       'speed' => "{$units['speed']}"
     );
+  }
+  
+  // Returns the cached results from get_objects() if they exist
+  function get_cached_file($filename, $ttl) {
+    $path = __DIR__ . "/cache/$filename";
+    if (!file_exists($path)) {
+      return null;
+    }
+    $mtime = filemtime($path);
+    if (time() - $mtime > $ttl) {
+      // Expire the cached results; too old!
+      return null;
+    }
+    return file_get_contents($path);
+  }
+  
+  // Saves the results from get_objects() for later use
+  function cache_result_data($filename, $data) {
+    $path = __DIR__ . "/cache/$filename";
+    file_put_contents($path, $data);
   }
   
   // Defend against XSS

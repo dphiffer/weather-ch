@@ -1,17 +1,23 @@
 <?php
 
-if (!file_exists('config.php')) {
+if (!file_exists(__DIR__ . '/config.php')) {
   die('Hey, you need to set up config.php. Check out README.md.');
 }
-require_once 'config.php';
-require_once 'weather-ch.php';
+if (!is_writable(__DIR__ . '/cache')) {
+  die('Please make the cache directory writable by the web daemon user.');
+}
+require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/weather-ch.php';
 
-$app = new Weather_CH($yahoo_app_id);
+$app = new Weather_CH(
+  $yahoo_app_id,
+  $cooper_hewitt_access_token
+);
 
 $query = '';
 if (!empty($_GET['q'])) {
   $query = $_GET['q'];
-  // Do we still have to do this?
+  // Do we still have to do this? Thanks Obama!
   if (get_magic_quotes_gpc()) {
     $query = stripslashes($query);
   }
@@ -35,17 +41,15 @@ if (!empty($_GET['q'])) {
     if (!empty($_GET['q'])) {
       $place = $app->get_place($_GET['q']);
       if (!empty($place)) {
-        $country_attrs = "country attrs";
-        $place_woeid = $place->woeid;
-        $country_woeid = $place->$country_attrs->woeid;
-        $weather_xml = $app->get_weather($place_woeid);
-        $weather_obj = $app->parse_weather($weather_xml);
-        $condition = $app->find_condition($weather_obj);
-        $units = $app->find_units($weather_obj);
+        $response = 'No place was found!';
+        $country_woeid = $app->find_country_woeid($place);
+        $place_woeid = $app->find_place_woeid($place);
+        $weather = $app->get_weather($place_woeid);
+        $object = $app->get_object($country_woeid);
         echo "<p>place: $place_woeid / country: $country_woeid</p>";
         echo "<pre>";
-        print_r($condition);
-        print_r($units);
+        print_r($weather);
+        print_r($object);
         echo "</pre>";
       } else {
         echo "<p class=\"error\">Error: could not find that place.</p>";
