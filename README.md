@@ -24,4 +24,8 @@ Let's get some WOEID search up in here. I am going to ask the user to search for
 
 The first method of interest here can be found in weather-ch.php, `Weather_CH::get_place($query)`. It takes a search query and returns an object from the GeoPlanet API. This object has a WOEID for the place itself (used for getting the weather) and also the country the place is in (used for getting an object). So far so good.
 
+## Second step: get the weather info
 
+The Weather RSS service is nice because you don't need to authenticate anything. I plugged in the place WOEID I got back from the GeoPlanet Web Service, did some SimpleXML parsing on the result, and I seem to be in the weather business. I'm just going to focus on the current conditions, although I could easily see extending this to grab forecast numbers as well.
+
+The first two weather-related methods I added to `Weather_CH` was `get_weather($woeid)` to download data from the Yahoo Weather RSS service and `parse_weather($xml_str)` to parse it into a SimpleXML object. Two more methods, `find_condition($weather_xml)` and `find_units($weather_xml)`, pull out the relevant information we can use to display the weather.
