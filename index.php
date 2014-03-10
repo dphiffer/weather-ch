@@ -31,6 +31,7 @@ if (!empty($query)) {
     <meta charset="utf-8">
     <title>Weather + Design</title>
     <link rel="stylesheet" href="weather-ch.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
   </head>
   <body class="<?php echo (!empty($weather) && !empty($object)) ? 'result' : 'form'; ?>">
     <div class="container">
