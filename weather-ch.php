@@ -9,6 +9,9 @@ class Weather_CH {
   var $yahoo_key = null;
   var $cooper_hewitt_access_token = null;
   
+  // How long to cache the search query as a cookie
+  var $query_cookie_ttl = 31536000; // 1 year
+  
   // How long to keep API results cached for
   var $place_cache_ttl   = 86400; // 24 hours
   var $weather_cache_ttl = 60;    // 1 minute
@@ -24,6 +27,24 @@ class Weather_CH {
     $this->cooper_hewitt_access_token = $cooper_hewitt_access_token;
   }
   
+  // Returns the current search query param 'q', or its equivalent from a
+  // long-storage cookie
+  function get_query() {
+    $query = null;
+    if (!empty($_GET['q'])) {
+      $query = $_GET['q'];
+      $expires = time() + $this->query_cookie_ttl;
+      setcookie('q', $query, $expires);
+    } else if (!empty($_COOKIE['q'])) {
+      $query = $_COOKIE['q'];
+    }
+    // Do we still have to do this? Thanks Obama!
+    if (get_magic_quotes_gpc()) {
+      $query = stripslashes($query);
+    }
+    return $query;
+  }
+  
   // Takes a place search query and returns the first Yahoo GeoPlanet object
   // (or null if none is found)
   function get_place($query) {
@@ -37,17 +58,20 @@ class Weather_CH {
   }
   
   // Takes a place WOEID and returns the weather information from the Yahoo
-  // Weather API as an associative array (or null if unsuccessful)
+  // Weather API as an object (or null if unsuccessful)
   function get_weather($place_woeid) {
     $weather_xml = $this->load_weather($place_woeid);
     $weather_obj = $this->parse_weather($weather_xml);
+    if (empty($weather_obj)) {
+      return null;
+    }
     $weather = $this->find_condition($weather_obj);
     $units = $this->find_units($weather_obj);
     if (empty($weather) || empty($units)) {
       return null;
     }
-    $weather['units'] = $units;
-    return $weather;
+    $weather['units'] = (object) $units;
+    return (object) $weather;
   }
   
   // Takes a country WOEID and searches for objects in the Cooper-Hewitt
@@ -183,6 +207,37 @@ class Weather_CH {
     return $objects[$index];
   }
   
+  // Returns a human-readable version of the place
+  function find_place_name($place) {
+    $country_attrs = 'country attrs';
+    if (empty($place) ||
+        empty($place->$country_attrs)) {
+      return null;
+    }
+    return "{$place->name}, {$place->$country_attrs->code}";
+  }
+  
+  // Returns a human-readable version of the country
+  function find_country_name($place) {
+    if (empty($place)) {
+      return null;
+    }
+    return $place->country;
+  }
+  
+  // Returns a large representative image from the object
+  function find_image($object, $size = 'b') {
+    if (empty($object) ||
+        empty($object->images)) {
+      return null;
+    }
+    $image = $object->images[0];
+    if (empty($image->$size)) {
+      return null;
+    }
+    return $image->$size;
+  }
+  
   // Takes a place object from GeoPlanet API and returns a numeric WOEID from
   // that place's country (or null if one is not found)
   function find_country_woeid($place) {
@@ -258,7 +313,7 @@ class Weather_CH {
   }
   
   // Defend against XSS
-  function attr_esc($untrusted) {
+  function escape($untrusted) {
     // Quick and dirty, there might some be unicode edge cases to handle
     return htmlentities($untrusted, ENT_QUOTES, 'utf-8');
   }

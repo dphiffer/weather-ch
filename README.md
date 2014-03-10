@@ -37,7 +37,7 @@ The first method of interest here can be found in weather-ch.php, `Weather_CH::g
 
 The Weather RSS service is nice because you don't need to authenticate anything. I plugged in the place WOEID I got back from the GeoPlanet Web Service, did some SimpleXML parsing on the result, and I seem to be in the weather business. I'm just going to focus on the current conditions, although I could easily see extending this to grab forecast numbers as well.
 
-I added another method `get_weather($woeid)` to `Weather_CH` that downloads data from the Yahoo Weather RSS service and returns the current weather conditions as an associative array.
+I added another method `get_weather($woeid)` to `Weather_CH` that downloads data from the Yahoo Weather RSS service and returns the current weather conditions (and units) as an object.
 
 ## Third step: get the object info
 
@@ -47,4 +47,9 @@ I added one more top-level method for working with the Cooper-Hewitt Collection 
 
 I also added a caching layer to be a good Internet Citizen. All the basic parts are in place now!
  
- 
+## Fourth step: refactoring and styling
+
+I took the basic data from the previous steps and did some light refactoring. A lot of this had to do with slimming down the amount of code in `index.php` and shifting it to the application class. I whipped up a simple, mobile-first CSS treatment to show the data, and some copy that helps orient a website visitor about what it is they're looking at.
+
+The main thing this project shows is the breadth of the Cooper-Hewitt collection, across many countries beyond the United States. Perhaps it could raise the international profile of the museum just a bit. If I had a bit more time I would expose a control to switch between fahrenheit and celsius, defaulting to celsius if the country being searched for is outside the small list of non-metric observers.
+

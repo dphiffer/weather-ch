@@ -9,18 +9,19 @@ if (!is_writable(__DIR__ . '/cache')) {
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/weather-ch.php';
 
+// All the heavy lifting happens in Weather_CH (defined in weather-ch.php)
 $app = new Weather_CH(
   $yahoo_app_id,
   $cooper_hewitt_access_token
 );
+$query = $app->get_query();
 
-$query = '';
-if (!empty($_GET['q'])) {
-  $query = $_GET['q'];
-  // Do we still have to do this? Thanks Obama!
-  if (get_magic_quotes_gpc()) {
-    $query = stripslashes($query);
-  }
+if (!empty($query)) {
+  $place = $app->get_place($query);
+  $country_woeid = $app->find_country_woeid($place);
+  $place_woeid = $app->find_place_woeid($place);
+  $weather = $app->get_weather($place_woeid);
+  $object = $app->get_object($country_woeid);
 }
 
 ?>
@@ -28,34 +29,49 @@ if (!empty($_GET['q'])) {
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Weather + Object</title>
+    <title>Weather + Design</title>
+    <link rel="stylesheet" href="weather-ch.css">
   </head>
-  <body>
-    <h1>Weather + Object</h1>
-    <form action=".">
-      <input name="q" value="<?php echo $app->attr_esc($query); ?>" placeholder="Search for a place">
-      <button type="submit">Go</button>
-    </form>
-    <?php
-    
-    if (!empty($_GET['q'])) {
-      $place = $app->get_place($_GET['q']);
-      if (!empty($place)) {
-        $response = 'No place was found!';
-        $country_woeid = $app->find_country_woeid($place);
-        $place_woeid = $app->find_place_woeid($place);
-        $weather = $app->get_weather($place_woeid);
-        $object = $app->get_object($country_woeid);
-        echo "<p>place: $place_woeid / country: $country_woeid</p>";
-        echo "<pre>";
-        print_r($weather);
-        print_r($object);
-        echo "</pre>";
-      } else {
-        echo "<p class=\"error\">Error: could not find that place.</p>";
+  <body class="<?php echo (!empty($weather) && !empty($object)) ? 'result' : 'form'; ?>">
+    <div class="container">
+      <h1><span class="weather">Weather</span> + <span class="design">Design</span></h1>
+      <p class="about">Get the local weather and a design object chosen at random from the <a href="https://collection.cooperhewitt.org/">Smithsonian Cooper-Hewitt, National Design Museum’s collection</a>.</p>
+      <form action=".">
+        <input name="q" value="<?php echo $app->escape($query); ?>" placeholder="Search for a place">
+        <button type="submit">Go</button>
+      </form>
+      <?php
+      
+      if (!empty($query) && (empty($weather) || empty($object))) {
+        echo "<p class=\"error\">Oops, something went wrong!</p>";
+      } else if (!empty($query)) {
+        $place_name = $app->escape($app->find_place_name($place));
+        $country = $app->escape($app->find_country_name($place));
+        $url = $app->escape($object->url);
+        $image = $app->find_image($object, 'z');
+        $src = $app->escape($image->url);
+        $weather_text = $app->escape($weather->text);
+        $temp = $app->escape($weather->temp);
+        $units = $app->escape($weather->units->temperature);
+        $title = $app->escape($object->title);
+        $medium = $app->escape($object->medium);
+        $description = $app->escape($object->description);
+        echo <<<END
+          <p class="weather">
+            Current weather in $place_name: <strong>$weather_text ($temp&deg;$units)</strong>
+          </p>
+          <h2>A randomly chosen design object that’s also from <strong>$country</strong></h2>
+          <a href="$url" class="object">
+            <img src="$src" alt="$title">
+            $title
+          </a>
+          <p class="details">
+            $medium<br>$description
+          </p>
+END;
       }
-    }
     
-    ?>
+      ?>
+    </div>
   </body>
 </html>
