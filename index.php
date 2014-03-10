@@ -50,17 +50,21 @@ if (!empty($query)) {
         $country = $app->escape($app->find_country_name($place));
         $url = $app->escape($object->url);
         $image = $app->find_image($object, 'z');
+        $background = $app->find_image($object, 'b');
+        $background_src = $app->escape($background->url);
         $src = $app->escape($image->url);
         $weather_text = $app->escape($weather->text);
+        $weather_url = $app->escape($weather->url);
         $temp = $app->escape($weather->temp);
         $units = $app->escape($weather->units->temperature);
         $title = $app->escape($object->title);
         $medium = $app->escape($object->medium);
         $description = $app->escape($object->description);
         echo <<<END
-          <p class="weather">
+          <a href="$weather_url" class="weather">
             Current weather in $place_name: <strong>$weather_text ($temp&deg;$units)</strong>
-          </p>
+          </a>
+          <p class="credit">Data from <a href="http://www.weather.com">The Weather Channel</a> via <a href="http://developer.yahoo.com/weather/">Yahoo Weather</a></p>
           <h2>A randomly chosen design object that’s also from <strong>$country</strong></h2>
           <a href="$url" class="object">
             <img src="$src" alt="$title">
@@ -69,6 +73,15 @@ if (!empty($query)) {
           <p class="details">
             $medium<br>$description
           </p>
+          <style>
+          /* Mobile doesn't get the large background image tile */
+          @media
+            only screen and (min-width: 321px) {
+            body {
+              background: url('$background_src');
+            }
+          }
+          </style>
 END;
       }
     

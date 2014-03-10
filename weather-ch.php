@@ -71,6 +71,7 @@ class Weather_CH {
       return null;
     }
     $weather['units'] = (object) $units;
+    $weather['url'] = "{$weather_obj->channel->link}";
     return (object) $weather;
   }
   

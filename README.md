@@ -51,5 +51,5 @@ I also added a caching layer to be a good Internet Citizen. All the basic parts 
 
 I took the basic data from the previous steps and did some light refactoring. A lot of this had to do with slimming down the amount of code in `index.php` and shifting it to the application class. I whipped up a simple, mobile-first CSS treatment to show the data, and some copy that helps orient a website visitor about what it is they're looking at.
 
-The main thing this project shows is the breadth of the Cooper-Hewitt collection, across many countries beyond the United States. Perhaps it could raise the international profile of the museum just a bit. If I had a bit more time I would expose a control to switch between fahrenheit and celsius, defaulting to celsius if the country being searched for is outside the small list of non-metric observers.
+The main thing this project shows is the breadth of the Cooper-Hewitt collection, across many countries beyond the United States. Perhaps it could serve to raise the international profile of the museum just a bit by providing a functional weather app for design enthusiasts. If I had a bit more time I would expose a control to switch between fahrenheit and celsius, defaulting to celsius if the country being searched for is outside the small list of non-metric observers.
 
