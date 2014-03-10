@@ -325,6 +325,10 @@ class Weather_CH {
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_HEADER, false);
     curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+    // I'm getting an SSL certificate verification error on my Ubuntu 10.04 VPS,
+    // so I'm going to ignore the certificate verification stage for now.
+    // TODO: don't be such a dummy about SSL
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
     $result = curl_exec($ch);
     $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
